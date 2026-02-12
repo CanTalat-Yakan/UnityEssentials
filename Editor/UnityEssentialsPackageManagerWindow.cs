@@ -1,7 +1,6 @@
 #if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
-using System.Threading;
 using UnityEditor;
 using UnityEditor.PackageManager;
 using UnityEditor.PackageManager.Requests;
@@ -17,26 +16,28 @@ namespace UnityEssentials
         private const string GitHubUser = "CanTalat-Yakan";
 
         private Vector2 _scroll;
-
         private string _filter;
-
         private bool _isFetching;
         private bool _isInstalling;
 
         private readonly List<UnityEssentialsPackageManager.Repo> _repos = new();
         private readonly List<string> _repoDisplayNames = new();
-        private readonly List<bool> _selected = new();
+        private readonly List<bool> _userSelected = new();
 
-        private DateTime _lastRepaint;
+        private readonly Dictionary<string, UnityEssentialsPackageManager.PackageMeta> _metaByRepoName = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, string> _repoNameByPackageName = new(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> _forcedRepoNames = new(StringComparer.Ordinal);
+
+        private readonly Dictionary<string, UnityEssentialsPackageManager.Repo> _repoByName = new(StringComparer.Ordinal);
 
         [MenuItem("Tools/Install & Update UnityEssentials", priority = -10000)]
         public static void ShowWindow()
         {
             var w = GetWindow<UnityEssentialsPackageManagerWindow>(true, "UnityEssentials Package Manager", true);
-            w.minSize = new Vector2(520, 520);
+            w.minSize = new Vector2(400, 500);
             w.Show();
         }
-
+        
         private void OnEnable()
         {
             if (_repos.Count == 0 && !_isFetching)
@@ -50,13 +51,6 @@ namespace UnityEssentials
             DrawBody();
             GUILayout.Space(6);
             DrawFooter();
-
-            // Ensure UI stays responsive during long-running ops.
-            if ((_isFetching || _isInstalling) && (DateTime.UtcNow - _lastRepaint).TotalMilliseconds > 200)
-            {
-                _lastRepaint = DateTime.UtcNow;
-                Repaint();
-            }
         }
 
         private void DrawHeader()
@@ -74,7 +68,7 @@ namespace UnityEssentials
 
                 using (new EditorGUI.DisabledScope(_isFetching || _isInstalling))
                 {
-                    if (GUILayout.Button("Refresh Repositories", EditorStyles.toolbarButton))
+                    if (GUILayout.Button("Refresh", EditorStyles.toolbarButton, GUILayout.Width(100)))
                     {
                         FetchRepositories();
                         GUI.FocusControl(null);
@@ -102,9 +96,9 @@ namespace UnityEssentials
                 using (new EditorGUI.DisabledScope(_isInstalling))
                 {
                     if (GUILayout.Button("All", GUILayout.Width(48)))
-                        SetAllSelection(true);
+                        SetAllUserSelection(true);
                     if (GUILayout.Button("None", GUILayout.Width(56)))
-                        SetAllSelection(false);
+                        SetAllUserSelection(false);
                 }
 
                 GUILayout.FlexibleSpace();
@@ -116,12 +110,22 @@ namespace UnityEssentials
             _scroll = EditorGUILayout.BeginScrollView(_scroll);
             for (int i = 0; i < _repoDisplayNames.Count; i++)
             {
-                if (i >= _selected.Count)
-                    _selected.Add(false);
+                if (i >= _userSelected.Count)
+                    _userSelected.Add(false);
 
-                using (new EditorGUI.DisabledScope(_isInstalling))
+                var repoName = _repoDisplayNames[i];
+                bool isForced = _forcedRepoNames.Contains(repoName);
+                bool effectiveChecked = _userSelected[i] || isForced;
+
+                using (new EditorGUI.DisabledScope(_isInstalling || isForced))
                 {
-                    _selected[i] = EditorGUILayout.ToggleLeft(_repoDisplayNames[i], _selected[i]);
+                    bool newValue = EditorGUILayout.ToggleLeft(repoName, effectiveChecked);
+                    if (!isForced && newValue != _userSelected[i])
+                    {
+                        _userSelected[i] = newValue;
+                        RecomputeForcedStates();
+                        Repaint();
+                    }
                 }
             }
             EditorGUILayout.EndScrollView();
@@ -132,9 +136,10 @@ namespace UnityEssentials
             if (_isFetching)
                 return;
 
-            int selectedCount = 0;
-            for (int i = 0; i < _selected.Count; i++)
-                if (_selected[i]) selectedCount++;
+            int selectedCount = UnityEssentialsPackageManagerUtilities.GetEffectiveSelectedRepos(
+                _repoDisplayNames,
+                _userSelected,
+                _forcedRepoNames).Count;
 
             if (selectedCount == 0)
                 return;
@@ -161,8 +166,14 @@ namespace UnityEssentials
 
             _isFetching = true;
             _repos.Clear();
+            _repoByName.Clear();
+
             _repoDisplayNames.Clear();
-            _selected.Clear();
+            _userSelected.Clear();
+
+            _metaByRepoName.Clear();
+            _repoNameByPackageName.Clear();
+            _forcedRepoNames.Clear();
 
             try
             {
@@ -177,11 +188,15 @@ namespace UnityEssentials
                     if (r == null || string.IsNullOrEmpty(r.name)) continue;
                     if (!r.name.StartsWith("Unity.", StringComparison.Ordinal)) continue;
 
-                    // Keep unfiltered list in memory; templates are filtered in ApplyFilterAndSelectionReset.
                     _repos.Add(r);
+                    if (!_repoByName.ContainsKey(r.name))
+                        _repoByName[r.name] = r;
                 }
 
                 ApplyFilterAndSelectionReset();
+
+                // Build packageName -> repoName index synchronously so dependency forcing is instant.
+                BuildPackageIndexBlocking();
             }
             finally
             {
@@ -190,10 +205,49 @@ namespace UnityEssentials
             }
         }
 
+        private void BuildPackageIndexBlocking()
+        {
+            if (_repos.Count == 0)
+                return;
+
+            for (int i = 0; i < _repos.Count; i++)
+            {
+                var repo = _repos[i];
+                if (repo == null)
+                    continue;
+
+                float progress = (float)i / Math.Max(1, _repos.Count);
+                EditorUtility.DisplayProgressBar("UnityEssentials", $"Indexing packages & dependencies… ({i + 1}/{_repos.Count})", progress);
+
+                // Cache full meta so selecting later doesn't fetch anything.
+                if (UnityEssentialsPackageManager.TryGetPackageMetaFromRepo(repo, out var meta, out _))
+                {
+                    if (!_metaByRepoName.ContainsKey(repo.name))
+                        _metaByRepoName[repo.name] = meta;
+
+                    if (!string.IsNullOrEmpty(meta?.packageName) && !_repoNameByPackageName.ContainsKey(meta.packageName))
+                        _repoNameByPackageName[meta.packageName] = repo.name;
+                }
+                else
+                {
+                    // Negative cache so we don't retry later.
+                    if (!_metaByRepoName.ContainsKey(repo.name))
+                        _metaByRepoName[repo.name] = null;
+                }
+            }
+
+            RecomputeForcedStates();
+        }
+
         private void ApplyFilterAndSelectionReset()
         {
+            // Preserve user selections by repoName across filter changes.
+            var previousUser = new Dictionary<string, bool>(StringComparer.Ordinal);
+            for (int i = 0; i < _repoDisplayNames.Count && i < _userSelected.Count; i++)
+                previousUser[_repoDisplayNames[i]] = _userSelected[i];
+
             _repoDisplayNames.Clear();
-            _selected.Clear();
+            _userSelected.Clear();
 
             for (int i = 0; i < _repos.Count; i++)
             {
@@ -205,14 +259,36 @@ namespace UnityEssentials
                     continue;
 
                 _repoDisplayNames.Add(repoName);
-                _selected.Add(false);
+                _userSelected.Add(previousUser.TryGetValue(repoName, out var v) && v);
             }
+
+            // Filter changes shouldn't trigger network calls; forced state will be re-evaluated
+            // using whatever dependency info we've already cached.
+            RecomputeForcedStates();
+            Repaint();
         }
 
-        private void SetAllSelection(bool value)
+        private void SetAllUserSelection(bool value)
         {
-            for (int i = 0; i < _selected.Count; i++)
-                _selected[i] = value;
+            for (int i = 0; i < _userSelected.Count; i++)
+                _userSelected[i] = value;
+
+            RecomputeForcedStates();
+            Repaint();
+        }
+
+        private void RecomputeForcedStates()
+        {
+            _forcedRepoNames.Clear();
+
+            var forced = UnityEssentialsPackageManagerUtilities.ComputeForcedRepos(
+                _repoDisplayNames,
+                _userSelected,
+                _metaByRepoName,
+                _repoNameByPackageName);
+
+            foreach (var r in forced)
+                _forcedRepoNames.Add(r);
         }
 
         private void InstallOrUpdateSelected()
@@ -226,7 +302,7 @@ namespace UnityEssentials
                 EditorUtility.DisplayProgressBar("UnityEssentials", "Reading installed packages…", 0f);
                 ListRequest listReq = Client.List();
                 while (!listReq.IsCompleted)
-                    Thread.Sleep(20);
+                    System.Threading.Thread.Sleep(20);
 
                 var installedByName = new Dictionary<string, UnityEditor.PackageManager.PackageInfo>(StringComparer.OrdinalIgnoreCase);
                 if (listReq.Status == StatusCode.Success && listReq.Result != null)
@@ -234,11 +310,16 @@ namespace UnityEssentials
                         if (!string.IsNullOrEmpty(p.name) && !installedByName.ContainsKey(p.name))
                             installedByName.Add(p.name, p);
 
+                // Effective selection = selected + forced.
+                var selectedRepoNames = UnityEssentialsPackageManagerUtilities.GetEffectiveSelectedRepos(
+                    _repoDisplayNames,
+                    _userSelected,
+                    _forcedRepoNames);
+
                 var selectedRepos = new List<UnityEssentialsPackageManager.Repo>();
-                for (int i = 0; i < _repoDisplayNames.Count; i++)
+                foreach (var repoName in selectedRepoNames)
                 {
-                    if (!_selected[i]) continue;
-                    var repo = _repos.Find(r => string.Equals(r.name, _repoDisplayNames[i], StringComparison.Ordinal));
+                    var repo = _repos.Find(r => string.Equals(r.name, repoName, StringComparison.Ordinal));
                     if (repo != null) selectedRepos.Add(repo);
                 }
 
@@ -273,7 +354,7 @@ namespace UnityEssentials
                     {
                         var elapsed = (float)(DateTime.UtcNow - start).TotalSeconds;
                         EditorUtility.DisplayProgressBar("UnityEssentials", $"{action} {packageName}… ({elapsed:0}s)", progress);
-                        Thread.Sleep(40);
+                        System.Threading.Thread.Sleep(40);
                     }
 
                     if (addReq.Status == StatusCode.Success)
@@ -308,4 +389,3 @@ namespace UnityEssentials
     }
 }
 #endif
-
