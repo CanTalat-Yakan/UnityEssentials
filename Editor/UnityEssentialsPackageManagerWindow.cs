@@ -1,6 +1,7 @@
 #if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
+using System.IO;
 using UnityEditor;
 using UnityEditor.PackageManager;
 using UnityEditor.PackageManager.Requests;
@@ -295,22 +296,25 @@ namespace UnityEssentials
         {
             if (_isInstalling) return;
 
+            // Dialog 1: choose the operation for the selected repositories.
+            int op = EditorUtility.DisplayDialogComplex(
+                "UnityEssentials",
+                "What do you want to do?",
+                "Install / Update Packages",
+                "Cancel",
+                "Clone Repositories");
+
+            // 0 = left/OK, 1 = cancel, 2 = right/alt
+            if (op == 1)
+                return;
+
+            bool doInstallPackages = (op == 0);
+            bool doCloneRepos = (op == 2);
+
             _isInstalling = true;
             try
             {
-                // Cache installed packages once.
-                EditorUtility.DisplayProgressBar("UnityEssentials", "Reading installed packages…", 0f);
-                ListRequest listReq = Client.List();
-                while (!listReq.IsCompleted)
-                    System.Threading.Thread.Sleep(20);
-
-                var installedByName = new Dictionary<string, UnityEditor.PackageManager.PackageInfo>(StringComparer.OrdinalIgnoreCase);
-                if (listReq.Status == StatusCode.Success && listReq.Result != null)
-                    foreach (var p in listReq.Result)
-                        if (!string.IsNullOrEmpty(p.name) && !installedByName.ContainsKey(p.name))
-                            installedByName.Add(p.name, p);
-
-                // Effective selection = selected + forced.
+                // Effective selection = user-selected + dependency-forced.
                 var selectedRepoNames = UnityEssentialsPackageManagerUtilities.GetEffectiveSelectedRepos(
                     _repoDisplayNames,
                     _userSelected,
@@ -323,69 +327,164 @@ namespace UnityEssentials
                     if (repo != null) selectedRepos.Add(repo);
                 }
 
-                int installedCount = 0;
-                int updatedCount = 0;
-                int skippedCount = 0;
-                int failedCount = 0;
-
-                for (int i = 0; i < selectedRepos.Count; i++)
+                if (doCloneRepos)
                 {
-                    var repo = selectedRepos[i];
-                    float progress = (float)i / Math.Max(1, selectedRepos.Count);
+                    // Dialog 2: when cloning, choose how to handle existing destinations.
+                    int modeIdx = EditorUtility.DisplayDialogComplex(
+                        "UnityEssentials",
+                        "Clone repositories into Assets/Repositories.\n\nIf destination exists:",
+                        "Skip",
+                        "Pull",
+                        "Reclone");
 
-                    EditorUtility.DisplayProgressBar("UnityEssentials", $"Checking {repo.name} ({i + 1}/{selectedRepos.Count})…", progress);
-
-                    if (!UnityEssentialsPackageManager.TryGetPackageNameFromRepo(repo, out var packageName, out _))
+                    UnityEssentialsCloneMode cloneMode = modeIdx switch
                     {
-                        skippedCount++;
-                        continue;
+                        0 => UnityEssentialsCloneMode.SkipIfExists,
+                        1 => UnityEssentialsCloneMode.PullIfExists,
+                        _ => UnityEssentialsCloneMode.RecloneIfExists,
+                    };
+
+                    if (!UnityEssentialsGitUtilities.IsGitAvailable(out var verOrError))
+                    {
+                        EditorUtility.DisplayDialog(
+                            "UnityEssentials",
+                            "Git isn't available on PATH, so cloning can't run.\n\nError: " + verOrError,
+                            "OK");
+                        return;
                     }
 
-                    bool isInstalled = installedByName.ContainsKey(packageName);
-                    string action = isInstalled ? "Updating" : "Installing";
+                    string reposRoot = UnityEssentialsGitUtilities.GetRepositoriesRootAbsolute();
+                    Directory.CreateDirectory(reposRoot);
 
-                    var gitUrl = $"https://github.com/{repo.owner?.login}/{repo.name}.git#{repo.default_branch}";
+                    int cloneOk = 0;
+                    int cloneFailed = 0;
+                    int cloneSkipped = 0;
 
-                    EditorUtility.DisplayProgressBar("UnityEssentials", $"{action} {packageName}…", progress);
-
-                    AddRequest addReq = Client.Add(gitUrl);
-                    var start = DateTime.UtcNow;
-                    while (!addReq.IsCompleted)
+                    for (int i = 0; i < selectedRepos.Count; i++)
                     {
-                        var elapsed = (float)(DateTime.UtcNow - start).TotalSeconds;
-                        EditorUtility.DisplayProgressBar("UnityEssentials", $"{action} {packageName}… ({elapsed:0}s)", progress);
-                        System.Threading.Thread.Sleep(40);
+                        var repo = selectedRepos[i];
+                        float progress = (float)i / Math.Max(1, selectedRepos.Count);
+
+                        if (EditorUtility.DisplayCancelableProgressBar(
+                                "UnityEssentials",
+                                $"Cloning {repo.name} ({i + 1}/{selectedRepos.Count})…",
+                                progress))
+                        {
+                            break;
+                        }
+
+                        string dest = Path.Combine(reposRoot, UnityEssentialsGitUtilities.SanitizeFolderName(repo.name));
+                        bool existed = Directory.Exists(dest);
+
+                        string repoUrl = $"https://github.com/{repo.owner?.login}/{repo.name}.git";
+
+                        bool ok = UnityEssentialsGitUtilities.CloneOrUpdate(
+                            repoUrl,
+                            repo.default_branch,
+                            dest,
+                            cloneMode,
+                            out var err);
+
+                        if (ok)
+                        {
+                            if (existed && cloneMode == UnityEssentialsCloneMode.SkipIfExists)
+                                cloneSkipped++;
+                            else
+                                cloneOk++;
+                        }
+                        else
+                        {
+                            cloneFailed++;
+                            Debug.LogError($"[UnityEssentials] Failed to clone/update '{repo.name}' -> '{dest}': {err}");
+                        }
                     }
 
-                    if (addReq.Status == StatusCode.Success)
-                    {
-                        if (isInstalled) updatedCount++; else installedCount++;
+                    EditorUtility.ClearProgressBar();
+                    AssetDatabase.Refresh();
 
-                        if (!string.IsNullOrEmpty(addReq.Result?.name))
-                            installedByName[addReq.Result.name] = addReq.Result;
-                    }
-                    else
-                    {
-                        failedCount++;
-                    }
+                    EditorUtility.DisplayDialog(
+                        "UnityEssentials",
+                        $"Clone complete.\n\nOK: {cloneOk}\nSkipped: {cloneSkipped}\nFailed: {cloneFailed}\n\nDestination: Assets/Repositories",
+                        "OK");
+
+                    return;
                 }
 
-                EditorUtility.DisplayDialog(
-                    "UnityEssentials",
-                    $"Install/Update complete.\n\nInstalled: {installedCount}\nUpdated: {updatedCount}\nSkipped: {skippedCount}\nFailed: {failedCount}",
-                    "OK");
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError(ex);
-                EditorUtility.DisplayDialog("UnityEssentials", "Unexpected error: " + ex.Message, "OK");
+                if (doInstallPackages)
+                {
+                    // Install/update the selected repositories as UPM git packages.
+                    // Cache installed packages once.
+                    EditorUtility.DisplayProgressBar("UnityEssentials", "Reading installed packages…", 0f);
+                    ListRequest listReq = Client.List();
+                    while (!listReq.IsCompleted)
+                        System.Threading.Thread.Sleep(20);
+
+                    var installedByName = new Dictionary<string, UnityEditor.PackageManager.PackageInfo>(StringComparer.OrdinalIgnoreCase);
+                    if (listReq.Status == StatusCode.Success && listReq.Result != null)
+                        foreach (var p in listReq.Result)
+                            if (!string.IsNullOrEmpty(p.name) && !installedByName.ContainsKey(p.name))
+                                installedByName.Add(p.name, p);
+
+                    int installedCount = 0;
+                    int updatedCount = 0;
+                    int skippedCount = 0;
+                    int failedCount = 0;
+
+                    for (int i = 0; i < selectedRepos.Count; i++)
+                    {
+                        var repo = selectedRepos[i];
+                        float progress = (float)i / Math.Max(1, selectedRepos.Count);
+
+                        EditorUtility.DisplayProgressBar("UnityEssentials", $"Checking {repo.name} ({i + 1}/{selectedRepos.Count})…", progress);
+
+                        if (!UnityEssentialsPackageManager.TryGetPackageNameFromRepo(repo, out var packageName, out _))
+                        {
+                            skippedCount++;
+                            continue;
+                        }
+
+                        bool isInstalled = installedByName.ContainsKey(packageName);
+                        string action = isInstalled ? "Updating" : "Installing";
+
+                        var gitUrl = $"https://github.com/{repo.owner?.login}/{repo.name}.git#{repo.default_branch}";
+
+                        EditorUtility.DisplayProgressBar("UnityEssentials", $"{action} {packageName}…", progress);
+
+                        AddRequest addReq = Client.Add(gitUrl);
+                        var start = DateTime.UtcNow;
+                        while (!addReq.IsCompleted)
+                        {
+                            var elapsed = (float)(DateTime.UtcNow - start).TotalSeconds;
+                            EditorUtility.DisplayProgressBar("UnityEssentials", $"{action} {packageName}… ({elapsed:0}s)", progress);
+                            System.Threading.Thread.Sleep(40);
+                        }
+
+                        if (addReq.Status == StatusCode.Success)
+                        {
+                            if (isInstalled) updatedCount++; else installedCount++;
+
+                            if (!string.IsNullOrEmpty(addReq.Result?.name))
+                                installedByName[addReq.Result.name] = addReq.Result;
+                        }
+                        else
+                        {
+                            failedCount++;
+                        }
+                    }
+
+                    EditorUtility.DisplayDialog(
+                        "UnityEssentials",
+                        $"Install/Update complete.\n\nInstalled: {installedCount}\nUpdated: {updatedCount}\nSkipped: {skippedCount}\nFailed: {failedCount}",
+                        "OK");
+                }
             }
             finally
             {
-                EditorUtility.ClearProgressBar();
                 _isInstalling = false;
+                EditorUtility.ClearProgressBar();
             }
         }
     }
 }
 #endif
+
