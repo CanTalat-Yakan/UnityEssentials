@@ -1,6 +1,6 @@
 {
   "name": "com.unityessentials.core",
-  "version": "2.0.6",
+  "version": "2.0.7",
   "displayName": "UnityEssentials",
   "description": "This is a part of the UnityEssentials Ecosystem",
   "unity": "6000.0",
@@ -9,7 +9,8 @@
   "dependencies": {
     "com.unity.addressables": "2.8.0",
     "com.unity.cinemachine": "3.1.0",
-    "com.unity.inputsystem": "1.18.0"
+    "com.unity.inputsystem": "1.18.0",
+    "com.unity.nuget.newtonsoft-json": "3.2.0"
   },
   "keywords": [],
   "author": {
