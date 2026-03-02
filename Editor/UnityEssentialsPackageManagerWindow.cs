@@ -31,7 +31,7 @@ namespace UnityEssentials
 
         private readonly Dictionary<string, UnityEssentialsPackageManager.Repo> _repoByName = new(StringComparer.Ordinal);
 
-        [MenuItem("Tools/Install & Update UnityEssentials", priority = -10000)]
+        [MenuItem("Tools/UnityEssentials/Install & Update", priority = -10000)]
         public static void ShowWindow()
         {
             var w = GetWindow<UnityEssentialsPackageManagerWindow>(true, "UnityEssentials Package Manager", true);
