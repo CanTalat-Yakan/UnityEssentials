@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: UnityEssentials
+  m_EditorClassIdentifier: Unity.Addressables.Editor::UnityEditor.AddressableAssets.Settings.AddressableAssetGroup
+  m_GroupName: UnityEssentials
+  m_GUID: efeaad80691845f52b3f1681c72c9042
+  m_SerializeEntries:
+  - m_GUID: 48467eeb8afc2f344aac06960aa87439
+    m_Address: UnityEssentials_AudioMixer
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 96cdf337b4bbf7b4086e2d5385d04db2
+    m_Address: UnityEssentials_Prefab_AdvancedSpotLight
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: 1966d2fb6bd73e573b80c5c482e713fb, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: 6103fa3df767c69fd8bee8e3aa9890b2, type: 2}
+    - {fileID: 11400000, guid: 2a713dcd622695a8793ab59e9bae8c42, type: 2}
