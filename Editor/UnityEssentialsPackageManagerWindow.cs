@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using UnityEditor;
 using UnityEditor.PackageManager;
 using UnityEditor.PackageManager.Requests;
@@ -15,6 +16,17 @@ namespace UnityEssentials
     public sealed class UnityEssentialsPackageManagerWindow : EditorWindow
     {
         private const string GitHubUser = "CanTalat-Yakan";
+
+        private sealed class PackageAddFailure
+        {
+            public string repoName;
+            public string packageName;
+            public string gitUrl;
+            public bool wasInstalled;
+            public string error;
+            public string retryError;
+            public bool retrySucceeded;
+        }
 
         private Vector2 _scroll;
         private string _filter;
@@ -428,7 +440,8 @@ namespace UnityEssentials
                     int installedCount = 0;
                     int updatedCount = 0;
                     int skippedCount = 0;
-                    int failedCount = 0;
+
+                    var failures = new List<PackageAddFailure>();
 
                     for (int i = 0; i < selectedRepos.Count; i++)
                     {
@@ -468,13 +481,110 @@ namespace UnityEssentials
                         }
                         else
                         {
-                            failedCount++;
+                            var err = GetRequestErrorMessage(addReq);
+                            failures.Add(new PackageAddFailure
+                            {
+                                repoName = repo.name,
+                                packageName = packageName,
+                                gitUrl = gitUrl,
+                                wasInstalled = isInstalled,
+                                error = err,
+                                retryError = null,
+                                retrySucceeded = false,
+                            });
+
+                            Debug.LogError($"[UnityEssentials] Failed to {(isInstalled ? "update" : "install")} '{packageName}' from '{repo.name}'. URL: {gitUrl}\nError: {err}");
                         }
                     }
 
+                    // Retry once, at the end, for any packages that failed.
+                    int retryAttempted = failures.Count;
+                    int retrySucceeded = 0;
+
+                    if (failures.Count > 0)
+                    {
+                        for (int i = 0; i < failures.Count; i++)
+                        {
+                            var f = failures[i];
+                            float progress = (float)i / Math.Max(1, failures.Count);
+
+                            string action = f.wasInstalled ? "Retrying Update" : "Retrying Install";
+                            EditorUtility.DisplayProgressBar("UnityEssentials", $"{action} {f.packageName}… ({i + 1}/{failures.Count})", progress);
+
+                            AddRequest retryReq = Client.Add(f.gitUrl);
+                            var start = DateTime.UtcNow;
+                            while (!retryReq.IsCompleted)
+                            {
+                                var elapsed = (float)(DateTime.UtcNow - start).TotalSeconds;
+                                EditorUtility.DisplayProgressBar("UnityEssentials", $"{action} {f.packageName}… ({elapsed:0}s)", progress);
+                                System.Threading.Thread.Sleep(40);
+                            }
+
+                            if (retryReq.Status == StatusCode.Success)
+                            {
+                                f.retrySucceeded = true;
+                                retrySucceeded++;
+
+                                // Count the final outcome.
+                                bool nowInstalled = installedByName.ContainsKey(f.packageName);
+                                if (nowInstalled) updatedCount++; else installedCount++;
+
+                                if (!string.IsNullOrEmpty(retryReq.Result?.name))
+                                    installedByName[retryReq.Result.name] = retryReq.Result;
+                            }
+                            else
+                            {
+                                f.retryError = GetRequestErrorMessage(retryReq);
+                                Debug.LogError($"[UnityEssentials] Retry failed for '{f.packageName}' from '{f.repoName}'. URL: {f.gitUrl}\nError: {f.retryError}");
+                            }
+                        }
+                    }
+
+                    // Build final report (also copied to clipboard).
+                    int finalFailedCount = 0;
+                    for (int i = 0; i < failures.Count; i++)
+                        if (!failures[i].retrySucceeded)
+                            finalFailedCount++;
+
+                    var sb = new StringBuilder(512);
+                    sb.AppendLine("Install/Update complete.");
+                    sb.AppendLine();
+                    sb.AppendLine($"Installed: {installedCount}");
+                    sb.AppendLine($"Updated: {updatedCount}");
+                    sb.AppendLine($"Skipped: {skippedCount}");
+                    sb.AppendLine($"Failed: {finalFailedCount}");
+
+                    if (retryAttempted > 0)
+                    {
+                        sb.AppendLine();
+                        sb.AppendLine($"Retried once: {retryAttempted} (Succeeded: {retrySucceeded}, Still failed: {finalFailedCount})");
+                    }
+
+                    if (finalFailedCount > 0)
+                    {
+                        sb.AppendLine();
+                        sb.AppendLine("Failures:");
+                        for (int i = 0; i < failures.Count; i++)
+                        {
+                            var f = failures[i];
+                            if (f.retrySucceeded)
+                                continue;
+
+                            string err = string.IsNullOrEmpty(f.retryError) ? f.error : f.retryError;
+                            sb.AppendLine($"- {f.packageName} ({f.repoName}): {err}");
+                        }
+                    }
+
+                    sb.AppendLine();
+                    sb.AppendLine("(Summary copied to clipboard)");
+
+                    string summary = sb.ToString();
+                    Debug.Log(summary);
+                    EditorGUIUtility.systemCopyBuffer = summary;
+
                     EditorUtility.DisplayDialog(
                         "UnityEssentials",
-                        $"Install/Update complete.\n\nInstalled: {installedCount}\nUpdated: {updatedCount}\nSkipped: {skippedCount}\nFailed: {failedCount}",
+                        summary,
                         "OK");
                 }
             }
@@ -483,6 +593,29 @@ namespace UnityEssentials
                 _isInstalling = false;
                 EditorUtility.ClearProgressBar();
             }
+        }
+
+        private static string GetRequestErrorMessage(UnityEditor.PackageManager.Requests.Request req)
+        {
+            if (req == null)
+                return "Unknown error (request was null)";
+
+            try
+            {
+                if (req.Error != null)
+                {
+                    if (!string.IsNullOrEmpty(req.Error.message))
+                        return req.Error.message;
+
+                    return "Package Manager error";
+                }
+            }
+            catch
+            {
+                // Unity's PackageManager errors vary a bit by version; fall back to status.
+            }
+
+            return $"Package Manager request failed (status: {req.Status})";
         }
     }
 }
