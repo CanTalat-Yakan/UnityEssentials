@@ -424,6 +424,12 @@ namespace UnityEssentials
 
                 if (doInstallPackages)
                 {
+                    // Install dependencies first.
+                    // These packages reference each other by (name, version) in package.json, so adding a dependent
+                    // before its dependency can fail with "Package ... cannot be found" until the dependency exists.
+                    EnsureMetaForSelectedRepos(selectedRepos);
+                    selectedRepos = OrderReposByDependencies(selectedRepos, _metaByRepoName, _repoNameByPackageName);
+
                     // Install/update the selected repositories as UPM git packages.
                     // Cache installed packages once.
                     EditorUtility.DisplayProgressBar("UnityEssentials", "Reading installed packages…", 0f);
@@ -450,7 +456,11 @@ namespace UnityEssentials
 
                         EditorUtility.DisplayProgressBar("UnityEssentials", $"Checking {repo.name} ({i + 1}/{selectedRepos.Count})…", progress);
 
-                        if (!UnityEssentialsPackageManager.TryGetPackageNameFromRepo(repo, out var packageName, out _))
+                        string packageName = null;
+                        if (_metaByRepoName.TryGetValue(repo.name, out var meta) && !string.IsNullOrEmpty(meta?.packageName))
+                            packageName = meta.packageName;
+
+                        if (string.IsNullOrEmpty(packageName) && !UnityEssentialsPackageManager.TryGetPackageNameFromRepo(repo, out packageName, out _))
                         {
                             skippedCount++;
                             continue;
@@ -616,6 +626,145 @@ namespace UnityEssentials
             }
 
             return $"Package Manager request failed (status: {req.Status})";
+        }
+
+        private void EnsureMetaForSelectedRepos(List<UnityEssentialsPackageManager.Repo> selectedRepos)
+        {
+            if (selectedRepos == null || selectedRepos.Count == 0)
+                return;
+
+            for (int i = 0; i < selectedRepos.Count; i++)
+            {
+                var repo = selectedRepos[i];
+                if (repo == null || string.IsNullOrEmpty(repo.name))
+                    continue;
+
+                // If meta is missing or negative-cached, try once more now.
+                if (_metaByRepoName.TryGetValue(repo.name, out var cached) && cached != null)
+                    continue;
+
+                float progress = (float)i / Math.Max(1, selectedRepos.Count);
+                EditorUtility.DisplayProgressBar("UnityEssentials", $"Reading package metadata… {repo.name}", progress);
+
+                if (UnityEssentialsPackageManager.TryGetPackageMetaFromRepo(repo, out var meta, out _))
+                {
+                    _metaByRepoName[repo.name] = meta;
+                    if (!string.IsNullOrEmpty(meta?.packageName) && !_repoNameByPackageName.ContainsKey(meta.packageName))
+                        _repoNameByPackageName[meta.packageName] = repo.name;
+                }
+            }
+        }
+
+        private static List<UnityEssentialsPackageManager.Repo> OrderReposByDependencies(
+            List<UnityEssentialsPackageManager.Repo> repos,
+            IReadOnlyDictionary<string, UnityEssentialsPackageManager.PackageMeta> metaByRepoName,
+            IReadOnlyDictionary<string, string> repoNameByPackageName)
+        {
+            if (repos == null || repos.Count <= 1)
+                return repos;
+
+            var repoByName = new Dictionary<string, UnityEssentialsPackageManager.Repo>(StringComparer.Ordinal);
+            var originalIndex = new Dictionary<string, int>(StringComparer.Ordinal);
+            for (int i = 0; i < repos.Count; i++)
+            {
+                var r = repos[i];
+                if (r == null || string.IsNullOrEmpty(r.name))
+                    continue;
+
+                if (!repoByName.ContainsKey(r.name))
+                    repoByName[r.name] = r;
+                if (!originalIndex.ContainsKey(r.name))
+                    originalIndex[r.name] = i;
+            }
+
+            var inDegree = new Dictionary<string, int>(StringComparer.Ordinal);
+            var outgoing = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+            foreach (var kvp in repoByName)
+            {
+                inDegree[kvp.Key] = 0;
+                outgoing[kvp.Key] = new List<string>();
+            }
+
+            foreach (var kvp in repoByName)
+            {
+                var repoName = kvp.Key;
+
+                if (!metaByRepoName.TryGetValue(repoName, out var meta) || meta == null || meta.dependencies == null)
+                    continue;
+
+                for (int i = 0; i < meta.dependencies.Count; i++)
+                {
+                    var depPackageName = meta.dependencies[i];
+                    if (string.IsNullOrEmpty(depPackageName))
+                        continue;
+
+                    if (!repoNameByPackageName.TryGetValue(depPackageName, out var depRepoName))
+                        continue;
+
+                    // Only order within the current selection.
+                    if (!repoByName.ContainsKey(depRepoName))
+                        continue;
+
+                    // Edge: depRepoName -> repoName
+                    outgoing[depRepoName].Add(repoName);
+                    inDegree[repoName] = inDegree[repoName] + 1;
+                }
+            }
+
+            int CompareByOriginalIndex(string a, string b)
+            {
+                int ia = originalIndex.TryGetValue(a, out var va) ? va : int.MaxValue;
+                int ib = originalIndex.TryGetValue(b, out var vb) ? vb : int.MaxValue;
+                return ia.CompareTo(ib);
+            }
+
+            var zeros = new List<string>();
+            foreach (var kvp in inDegree)
+                if (kvp.Value == 0)
+                    zeros.Add(kvp.Key);
+            zeros.Sort(CompareByOriginalIndex);
+
+            var orderedNames = new List<string>(repoByName.Count);
+            var orderedSet = new HashSet<string>(StringComparer.Ordinal);
+
+            while (zeros.Count > 0)
+            {
+                var n = zeros[0];
+                zeros.RemoveAt(0);
+                orderedNames.Add(n);
+                orderedSet.Add(n);
+
+                var children = outgoing[n];
+                for (int i = 0; i < children.Count; i++)
+                {
+                    var c = children[i];
+                    inDegree[c] = inDegree[c] - 1;
+                    if (inDegree[c] == 0)
+                    {
+                        zeros.Add(c);
+                        zeros.Sort(CompareByOriginalIndex);
+                    }
+                }
+            }
+
+            // Handle cycles / missing metadata by appending any remaining items in original order.
+            if (orderedNames.Count < repoByName.Count)
+            {
+                var remaining = new List<string>();
+                foreach (var kvp in repoByName)
+                    if (!orderedSet.Contains(kvp.Key))
+                        remaining.Add(kvp.Key);
+
+                remaining.Sort(CompareByOriginalIndex);
+                orderedNames.AddRange(remaining);
+            }
+
+            var ordered = new List<UnityEssentialsPackageManager.Repo>(orderedNames.Count);
+            for (int i = 0; i < orderedNames.Count; i++)
+                if (repoByName.TryGetValue(orderedNames[i], out var r))
+                    ordered.Add(r);
+
+            return ordered;
         }
     }
 }

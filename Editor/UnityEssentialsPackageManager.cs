@@ -11,7 +11,10 @@ namespace UnityEssentials
 {
     public static class UnityEssentialsPackageManager
     {
-        private const int HttpTimeoutSeconds = 30;
+        // GitHub raw/api requests can be slow on first run or under rate limiting.
+        // This timeout only affects UnityWebRequest usage in this file (repo/package.json fetching),
+        // not UnityEditor.PackageManager.Client.Add.
+        private const int HttpTimeoutSeconds = 60;
 
         [Serializable]
         public class Owner { public string login; }
