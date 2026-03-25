@@ -1,4 +1,4 @@
-#if Unity_Editor
+#if UNITY_EDITOR
 using UnityEditor;
 using UnityEditor.AddressableAssets.Build;
 using UnityEditor.AddressableAssets.Build.DataBuilders;
@@ -10,6 +10,7 @@ using UnityEngine;
 /// <summary>
 /// Ensures Addressables settings exist after script reload and exposes a manual Tools menu action.
 /// </summary>
+[InitializeOnLoad]
 public static class AddressablesInitializer
 {
     private const string PackedAssetsTemplateName = "Packed Assets";
@@ -18,9 +19,15 @@ public static class AddressablesInitializer
     private static bool s_InitializationQueued;
     private static int s_InitializationRetryCount;
 
-    [InitializeOnLoadMethod]
-    public static void InitializeAddressables() =>
+    static AddressablesInitializer() =>
         TryInitializeAddressables();
+
+    [MenuItem("Tools/UnityEssentials/Initialize Addressables", priority = -9999)]
+    public static void InitializeAddressablesFromMenu()
+    {
+        Debug.Log("Manually initializing Addressables settings...");
+        TryInitializeAddressables();
+    }
 
     private static void TryInitializeAddressables()
     {
@@ -68,7 +75,10 @@ public static class AddressablesInitializer
     {
         AddressableAssetSettings settings = AddressableAssetSettingsDefaultObject.GetSettings(true);
         if (settings == null)
+        {
+            Debug.LogWarning("Addressables settings could not be created or loaded.");
             return;
+        }
 
         bool updated = false;
 
@@ -78,8 +88,6 @@ public static class AddressablesInitializer
         updated |= EnsureDataBuilderAsset<BuildScriptFastMode>(settings);
         updated |= EnsureDataBuilderAsset<BuildScriptPackedMode>(settings);
         updated |= EnsureDataBuilderAsset<BuildScriptPackedPlayMode>(settings);
-
-        Debug.Log($"Addressables settings initialization completed. Updated: {updated}");
 
         if (!updated)
             return;
