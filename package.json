@@ -1,16 +1,16 @@
 {
   "name": "com.unityessentials.core",
-  "version": "2.0.16",
+  "version": "2.0.19",
   "displayName": "UnityEssentials",
   "description": "This is a part of the UnityEssentials Ecosystem",
   "unity": "6000.0",
   "unityRelease": "",
-  "resolutionStrategy": "highestPatch",
+  "resolutionStrategy": "highestMinor",
   "dependencies": {
-    "com.unity.addressables": "2.8.0",
-    "com.unity.cinemachine": "3.1.0",
-    "com.unity.inputsystem": "1.19.0",
-    "com.unity.nuget.newtonsoft-json": "3.2.0"
+    "com.unity.addressables": "2.0.0",
+    "com.unity.cinemachine": "3.0.0",
+    "com.unity.inputsystem": "1.0.0",
+    "com.unity.nuget.newtonsoft-json": "3.0.0"
   },
   "keywords": [],
   "author": {
