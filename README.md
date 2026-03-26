@@ -22,34 +22,34 @@ Dependencies between modules are resolved automatically.
 ## Module Overview
 
 ### Core Systems
-Architectural foundations: dependency injection, event bus, singletons, scene loading, asset resolution, runtime discovery, serialization, settings profiles, tick/timing, and more.
+Foundational architecture patterns and runtime infrastructure for scalable Unity projects.
 
 ### Diagnostics & Profiling
-Runtime console (F1), performance monitoring overlay (F3), FPS/frame-time graphs, GC memory tracking, and ImGuizmo gizmos — all rendered via ImGui.
+In-game console, performance monitoring overlays, and runtime debugging tools powered by ImGui.
 
 ### Environment & World Simulation
-Dynamic day/night cycle with astronomical celestial body tracking, volumetric weather (rain, snow, storms, wind), ocean, clouds, atmosphere, terrain, and flora/fauna/ecosystem modules.
+Dynamic world systems including day/night cycles, weather, ocean, terrain, atmosphere, and ecosystem management.
 
 ### Graphics & Rendering
-HDRP-focused: advanced atmosphere and sky, volumetrics, spotlight extensions, APV lighting baking, reflection probes, light cookies, tonemaps, physical camera properties, auto-exposure, and luminance calculation.
+Extended HDRP rendering features for lighting, volumetrics, sky, water, camera control, and post-processing.
 
 ### Humanoid & Character
-Pose and muscle controllers, active ragdoll with PID-driven animation following, ragdoll builder, animation rigging, and avatar customization.
+Character animation, ragdoll physics, pose control, rigging, and avatar systems.
 
 ### Editor Tooling
-11 custom inspector attributes (Button, DateTime, Directory, Foldout, Info, LabelOverride, MinMaxSlider, OnValueChanged, ReadOnly, ShowIf, ToggleButton), 12+ property drawers (Enum, ReorderableList, SerializedDictionary, SceneReference, MarkdownViewer, WindowBuilder, …), editor hooks (Hierarchy, Inspector, Toolbar, Statusbar, PlayerLoop, UIBuilder), and asset tools (MaskMapGenerator, EditorIcons, StickyNote).
+Custom inspector attributes, property drawers, editor hooks, and asset pipeline tools.
 
 ### UI Toolkit
-Tooltip, splash screen, menu generator, marquee label, element linker, animations, extensions, and script components for UIToolkit.
+Reusable UIToolkit components and extensions for runtime and editor interfaces.
 
 ### Sound & Audio
-Audio mixer, spatial audio, synthesis, acoustics, voice recording/playback.
+Spatial audio, mixing, synthesis, acoustics, and voice systems.
 
 ### Networking & Multiplayer
-Session management, P2P replication, matchmaking, voice/text chat, friends system, network identity, persistence, and inventory sync.
+P2P and session-based multiplayer with matchmaking, replication, social features, and backend infrastructure.
 
 ### Dependencies & Infrastructure
-Addressables integration, GitHub API, NuGet (Newtonsoft JSON), Git API, and the HDRP core (ImGui renderer, settings, resources, templates).
+Third-party integrations and HDRP core services required by other modules.
 
 ## Available Packages
 
@@ -71,7 +71,7 @@ Addressables integration, GitHub API, NuGet (Newtonsoft JSON), Git API, and the 
 - [Unity.Diagnostics.Monitoring](https://www.github.com/CanTalat-Yakan/Unity.Diagnostics.Monitoring)
 - [Unity.Diagnostics.ToggleShortcut](https://www.github.com/CanTalat-Yakan/Unity.Diagnostics.ToggleShortcut)
 
-### Editor — Attributes
+### Editor - Attributes
 - [Unity.Editor.Attributes.Button](https://www.github.com/CanTalat-Yakan/Unity.Editor.Attributes.Button)
 - [Unity.Editor.Attributes.DateTime](https://www.github.com/CanTalat-Yakan/Unity.Editor.Attributes.DateTime)
 - [Unity.Editor.Attributes.Directory](https://www.github.com/CanTalat-Yakan/Unity.Editor.Attributes.Directory)
@@ -84,7 +84,7 @@ Addressables integration, GitHub API, NuGet (Newtonsoft JSON), Git API, and the 
 - [Unity.Editor.Attributes.ShowIf](https://www.github.com/CanTalat-Yakan/Unity.Editor.Attributes.ShowIf)
 - [Unity.Editor.Attributes.ToggleButton](https://www.github.com/CanTalat-Yakan/Unity.Editor.Attributes.ToggleButton)
 
-### Editor — Components & Drawers
+### Editor - Components & Drawers
 - [Unity.Editor.Components.StickyNote](https://www.github.com/CanTalat-Yakan/Unity.Editor.Components.StickyNote)
 - [Unity.Editor.Drawer.Console](https://www.github.com/CanTalat-Yakan/Unity.Editor.Drawer.Console)
 - [Unity.Editor.Drawer.DomainReload](https://www.github.com/CanTalat-Yakan/Unity.Editor.Drawer.DomainReload)
@@ -99,7 +99,7 @@ Addressables integration, GitHub API, NuGet (Newtonsoft JSON), Git API, and the 
 - [Unity.Editor.Drawer.SimpleTreeView](https://www.github.com/CanTalat-Yakan/Unity.Editor.Drawer.SimpleTreeView)
 - [Unity.Editor.Drawer.WindowBuilder](https://www.github.com/CanTalat-Yakan/Unity.Editor.Drawer.WindowBuilder)
 
-### Editor — Hooks, Fetchers & Tools
+### Editor - Hooks, Fetchers & Tools
 - [Unity.Editor.Fetcher.MouseInput](https://www.github.com/CanTalat-Yakan/Unity.Editor.Fetcher.MouseInput)
 - [Unity.Editor.Hooks.Hierarchy](https://www.github.com/CanTalat-Yakan/Unity.Editor.Hooks.Hierarchy)
 - [Unity.Editor.Hooks.Inspector](https://www.github.com/CanTalat-Yakan/Unity.Editor.Hooks.Inspector)
