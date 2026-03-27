@@ -2,7 +2,7 @@
 
 A modular package ecosystem for Unity 6 and HDRP, providing production-ready building blocks for game and simulation development. From core architecture and environment systems to graphics, networking, and editor tooling, each module is independently installable with automatic dependency resolution.
 
-> All scripts are contianed within the `UnityEssentials` namespace.
+> All scripts are contained within the `UnityEssentials` namespace.
 
 ## Installation
 
