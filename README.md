@@ -21,35 +21,25 @@ Dependencies between modules are resolved automatically.
 
 ## Module Overview
 
-### Core Systems
-Foundational architecture patterns and runtime infrastructure for scalable Unity projects.
+**Core Systems**: Foundational architecture patterns and runtime infrastructure for scalable Unity projects.
 
-### Diagnostics & Profiling
-In-game console, performance monitoring overlays, and runtime debugging tools powered by ImGui.
+**Diagnostics & Profiling**: In-game console, performance monitoring overlays, and runtime debugging tools powered by ImGui.
 
-### Environment & World Simulation
-Dynamic world systems including day/night cycles, weather, ocean, terrain, atmosphere, and ecosystem management.
+**Environment & World Simulation**: Dynamic world systems including day/night cycles, weather, ocean, terrain, atmosphere, and ecosystem management.
 
-### Graphics & Rendering
-Extended HDRP rendering features for lighting, volumetrics, sky, water, camera control, and post-processing.
+**Graphics & Rendering**: Extended HDRP rendering features for lighting, volumetrics, sky, water, camera control, and post-processing.
 
-### Humanoid & Character
-Character animation, ragdoll physics, pose control, rigging, and avatar systems.
+**Humanoid & Character**: Character animation, ragdoll physics, pose control, rigging, and avatar systems.
 
-### Editor Tooling
-Custom inspector attributes, property drawers, editor hooks, and asset pipeline tools.
+**Editor Tooling**: Custom inspector attributes, property drawers, editor hooks, and asset pipeline tools.
 
-### UI Toolkit
-Reusable UIToolkit components and extensions for runtime and editor interfaces.
+**UI Toolkit**: Reusable UIToolkit components and extensions for runtime and editor interfaces.
 
-### Sound & Audio
-Spatial audio, mixing, synthesis, acoustics, and voice systems.
+**Sound & Audio**: Spatial audio, mixing, synthesis, acoustics, and voice systems.
 
-### Networking & Multiplayer
-P2P and session-based multiplayer with matchmaking, replication, social features, and backend infrastructure.
+**Networking & Multiplayer**: P2P and session-based multiplayer with matchmaking, replication, social features, and backend infrastructure.
 
-### Dependencies & Infrastructure
-Third-party integrations and HDRP core services required by other modules.
+**Dependencies & Infrastructure**: Third-party integrations and HDRP core services required by other modules.
 
 ## Available Packages
 
