@@ -14,7 +14,7 @@ A modular package ecosystem for Unity 6 and HDRP, providing production-ready bui
     ```
 
 2. **Install modules** from the Tools menu
-    - Tools → Install & Update UnityEssentials
+    - Tools → UnityEssentials → Install & Update
     - Select individual modules or install all; run again anytime to update
 
 Dependencies between modules are resolved automatically.
