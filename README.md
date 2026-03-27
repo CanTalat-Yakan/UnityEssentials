@@ -179,11 +179,11 @@ Third-party integrations and HDRP core services required by other modules.
 
 ### Rendering & Camera
 - [Unity.Rendering.AdvancedCamera](https://www.github.com/CanTalat-Yakan/Unity.Rendering.AdvancedCamera)
-- [Unity.Rendering.Camera.AutoExposureController](https://www.github.com/CanTalat-Yakan/Unity.Rendering.Camera.AutoExposureController)
-- [Unity.Rendering.Camera.FocusPointRayCaster](https://www.github.com/CanTalat-Yakan/Unity.Rendering.Camera.FocusPointRayCaster)
-- [Unity.Rendering.Camera.LuminanceCalculator](https://www.github.com/CanTalat-Yakan/Unity.Rendering.Camera.LuminanceCalculator)
-- [Unity.Rendering.Camera.PhysicalPropertiesController](https://www.github.com/CanTalat-Yakan/Unity.Rendering.Camera.PhysicalPropertiesController)
-- [Unity.Rendering.Camera.RenderTextureHandler](https://www.github.com/CanTalat-Yakan/Unity.Rendering.Camera.RenderTextureHandler)
+- [Unity.Rendering.Camera.AutoExposure](https://www.github.com/CanTalat-Yakan/Unity.Rendering.Camera.AutoExposure)
+- [Unity.Rendering.Camera.FocusPoint](https://www.github.com/CanTalat-Yakan/Unity.Rendering.Camera.FocusPoint)
+- [Unity.Rendering.Camera.Luminance](https://www.github.com/CanTalat-Yakan/Unity.Rendering.Camera.Luminance)
+- [Unity.Rendering.Camera.PhysicalProperties](https://www.github.com/CanTalat-Yakan/Unity.Rendering.Camera.PhysicalProperties)
+- [Unity.Rendering.Camera.RenderTexture](https://www.github.com/CanTalat-Yakan/Unity.Rendering.Camera.RenderTexture)
 - [Unity.Rendering.CameraRefreshRate](https://www.github.com/CanTalat-Yakan/Unity.Rendering.CameraRefreshRate)
 - [Unity.Rendering.GlobalRefreshRate](https://www.github.com/CanTalat-Yakan/Unity.Rendering.GlobalRefreshRate)
 
