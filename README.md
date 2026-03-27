@@ -22,34 +22,34 @@ Dependencies between modules are resolved automatically.
 ## Module Overview
 
 **Core Systems**: 
-Foundational architecture patterns and runtime infrastructure for scalable Unity projects.
+Foundational architecture patterns and runtime infrastructure for scalable Unity projects. Includes dependency injection, event buses, singletons, scene loading, serialization, asset resolution, and timing utilities.
 
 **Diagnostics & Profiling**: 
-In-game console, performance monitoring overlays, and runtime debugging tools powered by ImGui.
+In-game console, performance monitoring overlays, and runtime debugging tools powered by ImGui. Provides gizmo rendering, toggle shortcuts, and modular diagnostic panels for rapid iteration during development.
 
 **Environment & World Simulation**: 
-Dynamic world systems including day/night cycles, weather, ocean, terrain, atmosphere, and ecosystem management.
+Dynamic world systems including day/night cycles, weather, ocean, terrain, atmosphere, and ecosystem management. Covers wind, precipitation, clouds, celestial bodies, flora, fauna, and vegetation for rich, living environments.
 
 **Graphics & Rendering**: 
-Extended HDRP rendering features for lighting, volumetrics, sky, water, camera control, and post-processing.
+Extended HDRP rendering features for lighting, volumetrics, sky, water, camera control, and post-processing. Adds advanced atmosphere, terrain shading, spotlight effects, APV lighting baking, tonemaps, and light cookies.
 
 **Humanoid & Character**: 
-Character animation, ragdoll physics, pose control, rigging, and avatar systems.
+Character animation, ragdoll physics, pose control, rigging, and avatar systems. Supports active ragdolls, animation rigging, ragdoll builders, and advanced avatar customization for humanoid characters.
 
 **Editor Tooling**: 
-Custom inspector attributes, property drawers, editor hooks, and asset pipeline tools.
+Custom inspector attributes, property drawers, editor hooks, and asset pipeline tools. Extends the Unity Editor with hierarchy hooks, toolbar customization, reorderable lists, serialized dictionaries, and window builders.
 
 **UI Toolkit**: 
-Reusable UIToolkit components and extensions for runtime and editor interfaces.
+Reusable UIToolkit components and extensions for runtime and editor interfaces. Includes animations, tooltips, marquee labels, splash screens, menu generators, and element linking for streamlined UI development.
 
 **Sound & Audio**: 
-Spatial audio, mixing, synthesis, acoustics, and voice systems.
+Spatial audio, mixing, synthesis, acoustics, and voice systems. Provides configurable audio playback, room acoustics simulation, spatial positioning, and voice communication support.
 
 **Networking & Multiplayer**: 
-P2P and session-based multiplayer with matchmaking, replication, social features, and backend infrastructure.
+P2P and session-based multiplayer with matchmaking, replication, social features, and backend infrastructure. Covers transport, encryption, NAT traversal, relay servers, identity management, persistence, and inventory systems.
 
 **Dependencies & Infrastructure**: 
-Third-party integrations and HDRP core services required by other modules.
+Third-party integrations and HDRP core services required by other modules. Manages Addressables, Git API access, GitHub integration, and NuGet package support.
 
 ## Available Packages
 
